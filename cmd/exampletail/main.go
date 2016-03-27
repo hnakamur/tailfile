@@ -23,8 +23,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = t.Run()
+	i := 0
+	err = t.EachLine(func(line string) (done bool, err error) {
+		fmt.Printf("line=%s", line)
+		i++
+		if i > 130 {
+			return true, nil
+		}
+		return false, nil
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("exiting main")
 }

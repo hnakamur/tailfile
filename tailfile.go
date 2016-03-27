@@ -95,20 +95,28 @@ func (t *TailFile) closeFile() error {
 	return nil
 }
 
-func (t *TailFile) readAndPrintLoop() error {
+func (t *TailFile) readLines(callback EachLineCallback) (done bool, err error) {
 	if t.reader == nil {
-		return nil
+		return false, nil
 	}
 	for {
 		line, err := t.reader.ReadString(byte('\n'))
 		if err != nil {
-			return err
+			return false, err
 		}
-		fmt.Printf("line=%s", line)
+		done, err := callback(line)
+		if err != nil {
+			return false, err
+		}
+		if done {
+			return true, nil
+		}
 	}
 }
 
-func (t *TailFile) Run() error {
+type EachLineCallback func(line string) (done bool, err error)
+
+func (t *TailFile) EachLine(callback EachLineCallback) error {
 	var readingRenamedFile bool
 	for {
 		select {
@@ -125,13 +133,16 @@ func (t *TailFile) Run() error {
 			case fsnotify.Write:
 				if readingRenamedFile {
 					fmt.Println("target file is written again after rename.")
-					err := t.readAndPrintLoop()
+					done, err := t.readLines(callback)
 					if err != nil && err != io.EOF {
 						return err
 					}
 					err = t.closeFile()
 					if err != nil {
 						return err
+					}
+					if done {
+						return nil
 					}
 					fmt.Println("closed renamed file")
 					readingRenamedFile = false
@@ -140,22 +151,28 @@ func (t *TailFile) Run() error {
 				if err != nil {
 					return err
 				}
-				err = t.readAndPrintLoop()
+				done, err := t.readLines(callback)
 				if err != nil {
 					if err == io.EOF {
 						continue
 					}
 					return err
 				}
+				if done {
+					return nil
+				}
 			case fsnotify.Rename:
 				fmt.Println("File renamed. read until EOF, then close")
 				readingRenamedFile = true
-				err := t.readAndPrintLoop()
+				done, err := t.readLines(callback)
 				if err != nil {
 					if err == io.EOF {
 						continue
 					}
 					return err
+				}
+				if done {
+					return nil
 				}
 			case fsnotify.Remove:
 				fmt.Println("file removed. closing")
@@ -169,12 +186,15 @@ func (t *TailFile) Run() error {
 			}
 		case <-time.After(t.pollingIntervalAfterRename):
 			if readingRenamedFile {
-				err := t.readAndPrintLoop()
+				done, err := t.readLines(callback)
 				if err != nil {
 					if err == io.EOF {
 						continue
 					}
 					return err
+				}
+				if done {
+					return nil
 				}
 			}
 		case err := <-t.dirWatcher.Errors:
