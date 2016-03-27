@@ -10,6 +10,14 @@ import (
 	"github.com/hnakamur/tailfile"
 )
 
+type myLogger struct {
+	*log.Logger
+}
+
+func (l myLogger) Log(v interface{}) {
+	l.Print(v)
+}
+
 func main() {
 	flag.Parse()
 	if flag.NArg() != 1 {
@@ -18,8 +26,9 @@ func main() {
 	}
 	targetPath := flag.Arg(0)
 
+	//logger := myLogger{log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)}
 	pollingIntervalAfterRename := time.Duration(50) * time.Millisecond
-	t, err := tailfile.NewTailFile(targetPath, pollingIntervalAfterRename)
+	t, err := tailfile.NewTailFile(targetPath, pollingIntervalAfterRename, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

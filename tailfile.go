@@ -2,7 +2,6 @@ package tailfile
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,12 +17,13 @@ type TailFile struct {
 	pollingIntervalAfterRename time.Duration
 	file                       *os.File
 	reader                     *bufio.Reader
+	logger                     Logger
 
 	Lines  chan string
 	Errors chan error
 }
 
-func NewTailFile(filename string, pollingIntervalAfterRename time.Duration) (*TailFile, error) {
+func NewTailFile(filename string, pollingIntervalAfterRename time.Duration, logger Logger) (*TailFile, error) {
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
 		return nil, err
@@ -44,6 +44,7 @@ func NewTailFile(filename string, pollingIntervalAfterRename time.Duration) (*Ta
 		targetAbsPath:              absPath,
 		dirWatcher:                 dirWatcher,
 		pollingIntervalAfterRename: pollingIntervalAfterRename,
+		logger: logger,
 		Lines:  make(chan string),
 		Errors: make(chan error),
 	}
@@ -116,7 +117,6 @@ func (t *TailFile) ReadLoop() {
 	for {
 		select {
 		case ev := <-t.dirWatcher.Events:
-			//fmt.Printf("ev=%v\n", ev)
 			evAbsPath, err := filepath.Abs(ev.Name)
 			if err != nil {
 				t.Errors <- err
@@ -128,14 +128,18 @@ func (t *TailFile) ReadLoop() {
 			switch ev.Op {
 			case fsnotify.Write:
 				if readingRenamedFile {
-					fmt.Println("target file is written again after rename.")
+					if t.logger != nil {
+						t.logger.Log("target file is written again after rename.")
+					}
 					t.readLines()
 					err = t.closeFile()
 					if err != nil {
 						t.Errors <- err
 						return
 					}
-					fmt.Println("closed renamed file")
+					if t.logger != nil {
+						t.logger.Log("closed renamed file")
+					}
 					readingRenamedFile = false
 				}
 				err := t.tryOpenFile()
@@ -145,17 +149,23 @@ func (t *TailFile) ReadLoop() {
 				}
 				t.readLines()
 			case fsnotify.Rename:
-				fmt.Println("File renamed. read until EOF, then close")
+				if t.logger != nil {
+					t.logger.Log("File renamed. read until EOF, then close")
+				}
 				readingRenamedFile = true
 				t.readLines()
 			case fsnotify.Remove:
-				fmt.Println("file removed. closing")
+				if t.logger != nil {
+					t.logger.Log("file removed. closing")
+				}
 				err := t.closeFile()
 				if err != nil {
 					t.Errors <- err
 					return
 				}
-				fmt.Println("closed removed file")
+				if t.logger != nil {
+					t.logger.Log("closed removed file")
+				}
 			default:
 				// do nothing
 			}
