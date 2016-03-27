@@ -23,17 +23,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	i := 0
-	err = t.EachLine(func(line string) (done bool, err error) {
-		fmt.Printf("line=%s", line)
-		i++
-		if i > 130 {
-			return true, nil
+	go t.ReadLoop()
+	for {
+		select {
+		case line := <-t.Lines:
+			fmt.Printf("line=%s", line)
+		case err := <-t.Errors:
+			fmt.Printf("error from tail. err=%s\n", err)
+			break
+		default:
+			// do nothing
 		}
-		return false, nil
-	})
-	if err != nil {
-		log.Fatal(err)
 	}
 	fmt.Println("exiting main")
 }

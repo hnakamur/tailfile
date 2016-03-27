@@ -18,6 +18,9 @@ type TailFile struct {
 	pollingIntervalAfterRename time.Duration
 	file                       *os.File
 	reader                     *bufio.Reader
+
+	Lines  chan string
+	Errors chan error
 }
 
 func NewTailFile(filename string, pollingIntervalAfterRename time.Duration) (*TailFile, error) {
@@ -41,6 +44,8 @@ func NewTailFile(filename string, pollingIntervalAfterRename time.Duration) (*Ta
 		targetAbsPath:              absPath,
 		dirWatcher:                 dirWatcher,
 		pollingIntervalAfterRename: pollingIntervalAfterRename,
+		Lines:  make(chan string),
+		Errors: make(chan error),
 	}
 	err = t.tryOpenFile()
 	if err != nil {
@@ -50,13 +55,7 @@ func NewTailFile(filename string, pollingIntervalAfterRename time.Duration) (*Ta
 }
 
 func (t *TailFile) Close() error {
-	var err error
-	if t.file != nil {
-		err2 := t.file.Close()
-		if err2 != nil {
-			err = err2
-		}
-	}
+	err := t.closeFile()
 	if t.dirWatcher != nil {
 		err2 := t.dirWatcher.Close()
 		if err == nil && err2 != nil {
@@ -95,28 +94,24 @@ func (t *TailFile) closeFile() error {
 	return nil
 }
 
-func (t *TailFile) readLines(callback EachLineCallback) (done bool, err error) {
+func (t *TailFile) readLines() {
 	if t.reader == nil {
-		return false, nil
+		return
 	}
 	for {
 		line, err := t.reader.ReadString(byte('\n'))
 		if err != nil {
-			return false, err
+			if err == io.EOF {
+				return
+			}
+			t.Errors <- err
+			return
 		}
-		done, err := callback(line)
-		if err != nil {
-			return false, err
-		}
-		if done {
-			return true, nil
-		}
+		t.Lines <- line
 	}
 }
 
-type EachLineCallback func(line string) (done bool, err error)
-
-func (t *TailFile) EachLine(callback EachLineCallback) error {
+func (t *TailFile) ReadLoop() {
 	var readingRenamedFile bool
 	for {
 		select {
@@ -124,7 +119,8 @@ func (t *TailFile) EachLine(callback EachLineCallback) error {
 			//fmt.Printf("ev=%v\n", ev)
 			evAbsPath, err := filepath.Abs(ev.Name)
 			if err != nil {
-				return err
+				t.Errors <- err
+				return
 			}
 			if evAbsPath != t.targetAbsPath {
 				continue
@@ -133,52 +129,31 @@ func (t *TailFile) EachLine(callback EachLineCallback) error {
 			case fsnotify.Write:
 				if readingRenamedFile {
 					fmt.Println("target file is written again after rename.")
-					done, err := t.readLines(callback)
-					if err != nil && err != io.EOF {
-						return err
-					}
+					t.readLines()
 					err = t.closeFile()
 					if err != nil {
-						return err
-					}
-					if done {
-						return nil
+						t.Errors <- err
+						return
 					}
 					fmt.Println("closed renamed file")
 					readingRenamedFile = false
 				}
 				err := t.tryOpenFile()
 				if err != nil {
-					return err
+					t.Errors <- err
+					return
 				}
-				done, err := t.readLines(callback)
-				if err != nil {
-					if err == io.EOF {
-						continue
-					}
-					return err
-				}
-				if done {
-					return nil
-				}
+				t.readLines()
 			case fsnotify.Rename:
 				fmt.Println("File renamed. read until EOF, then close")
 				readingRenamedFile = true
-				done, err := t.readLines(callback)
-				if err != nil {
-					if err == io.EOF {
-						continue
-					}
-					return err
-				}
-				if done {
-					return nil
-				}
+				t.readLines()
 			case fsnotify.Remove:
 				fmt.Println("file removed. closing")
 				err := t.closeFile()
 				if err != nil {
-					return err
+					t.Errors <- err
+					return
 				}
 				fmt.Println("closed removed file")
 			default:
@@ -186,20 +161,11 @@ func (t *TailFile) EachLine(callback EachLineCallback) error {
 			}
 		case <-time.After(t.pollingIntervalAfterRename):
 			if readingRenamedFile {
-				done, err := t.readLines(callback)
-				if err != nil {
-					if err == io.EOF {
-						continue
-					}
-					return err
-				}
-				if done {
-					return nil
-				}
+				t.readLines()
 			}
 		case err := <-t.dirWatcher.Errors:
-			fmt.Printf("received error from watcher: %s", err)
-			return err
+			t.Errors <- err
+			return
 		}
 	}
 }
