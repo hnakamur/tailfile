@@ -2,6 +2,7 @@ package tailfile
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -161,6 +162,14 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 			case fsnotify.Rename:
 				if t.logger != nil {
 					t.logger.Log("File renamed. read until EOF, then close")
+				}
+				fi, err := t.file.Stat()
+				if err != nil {
+					t.Errors <- err
+					return
+				}
+				if t.logger != nil {
+					t.logger.Log(fmt.Sprintf("fileInfo after rename: %v", fi))
 				}
 				readingRenamedFile = true
 				t.readLines()
