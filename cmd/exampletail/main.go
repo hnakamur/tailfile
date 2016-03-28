@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/hnakamur/tailfile"
 )
@@ -26,20 +29,31 @@ func main() {
 	}
 	targetPath := flag.Arg(0)
 
-	//logger := myLogger{log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)}
+	logger := myLogger{log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)}
 	pollingIntervalAfterRename := time.Duration(50) * time.Millisecond
-	t, err := tailfile.NewTailFile(targetPath, pollingIntervalAfterRename, nil)
+	t, err := tailfile.NewTailFile(targetPath, pollingIntervalAfterRename, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
-	go t.ReadLoop()
+	defer t.Close()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go t.ReadLoop(ctx)
+loop:
 	for {
 		select {
 		case line := <-t.Lines:
 			fmt.Printf("line=%s", line)
 		case err := <-t.Errors:
 			fmt.Printf("error from tail. err=%s\n", err)
-			break
+			break loop
+		case s := <-c:
+			fmt.Println("got signal:", s)
+			cancel()
+			break loop
 		default:
 			// do nothing
 		}

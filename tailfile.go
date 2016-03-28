@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"gopkg.in/fsnotify.v1"
 )
 
@@ -120,7 +122,7 @@ func (t *TailFile) readLines() {
 
 // ReadLoop runs a loop for reading the target file. Please use this with a goroutine like:
 //  go t.ReadLoop()
-func (t *TailFile) ReadLoop() {
+func (t *TailFile) ReadLoop(ctx context.Context) {
 	var readingRenamedFile bool
 	for {
 		select {
@@ -183,6 +185,11 @@ func (t *TailFile) ReadLoop() {
 			}
 		case err := <-t.dirWatcher.Errors:
 			t.Errors <- err
+			return
+		case <-ctx.Done():
+			if t.logger != nil {
+				t.logger.Log("received ctx.Done. exiting ReadLoop")
+			}
 			return
 		}
 	}
