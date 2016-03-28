@@ -19,10 +19,15 @@ type TailFile struct {
 	reader                     *bufio.Reader
 	logger                     Logger
 
-	Lines  chan string
-	Errors chan error
+	Lines  chan string // The channel to receiving log lines while reading the log file
+	Errors chan error  // The channel to receiving an error while reading the log file
 }
 
+// NewTailFile starts watching the directory for the target file and opens the target file if it exists.
+// The target file may not exist at the first. In that case, TailFile opens the target file as soon as
+// the target file is created and written in the later time.
+// pollingIntervalAfterRename will be used in reading logs which is written after the target file is renamed.
+// The debug logs are written with logger. You can pass nil if you don't want the debug logs to be printed.
 func NewTailFile(filename string, pollingIntervalAfterRename time.Duration, logger Logger) (*TailFile, error) {
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
@@ -55,6 +60,7 @@ func NewTailFile(filename string, pollingIntervalAfterRename time.Duration, logg
 	return t, nil
 }
 
+// Close closes the target file and the directory watcher.
 func (t *TailFile) Close() error {
 	err := t.closeFile()
 	if t.dirWatcher != nil {
@@ -112,6 +118,8 @@ func (t *TailFile) readLines() {
 	}
 }
 
+// ReadLoop runs a loop for reading the target file. Please use this with a goroutine like:
+//  go t.ReadLoop()
 func (t *TailFile) ReadLoop() {
 	var readingRenamedFile bool
 	for {
