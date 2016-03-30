@@ -16,6 +16,7 @@ import (
 
 type TailFile struct {
 	targetAbsPath              string
+	renamedAbsPath             string
 	dirWatcher                 *fsnotify.Watcher
 	pollingIntervalAfterRename time.Duration
 	file                       *os.File
@@ -163,14 +164,15 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 				if t.logger != nil {
 					t.logger.Log("File renamed. read until EOF, then close")
 				}
-				fi, err := t.file.Stat()
+				filename, err := getFilenameFromFd(t.file.Fd())
 				if err != nil {
 					t.Errors <- err
 					return
 				}
 				if t.logger != nil {
-					t.logger.Log(fmt.Sprintf("fileInfo after rename: %v", fi))
+					t.logger.Log(fmt.Sprintf("filename after rename: %s", filename))
 				}
+				t.renamedAbsPath = filename
 				readingRenamedFile = true
 				t.readLines()
 			case fsnotify.Remove:
