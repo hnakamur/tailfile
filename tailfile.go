@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
 
 	"golang.org/x/net/context"
@@ -22,6 +23,7 @@ type TailFile struct {
 	file                *os.File
 	reader              *bufio.Reader
 	logger              Logger
+	mu                  sync.Mutex
 
 	Lines  chan string // The channel to receiving log lines while reading the log file
 	Errors chan error  // The channel to receiving an error while reading the log file
@@ -65,6 +67,9 @@ func NewTailFile(filename string, logger Logger) (*TailFile, error) {
 
 // Close closes the target file and the directory watcher.
 func (t *TailFile) Close() error {
+	t.mu.Lock() // synchronize with ReadLoop goroutine
+	defer t.mu.Unlock()
+
 	err := t.closeFile()
 	err2 := t.fsWatcher.Close()
 	if err != nil {
@@ -151,6 +156,9 @@ func (t *TailFile) readLines() {
 // ReadLoop runs a loop for reading the target file. Please use this with a goroutine like:
 //  go t.ReadLoop()
 func (t *TailFile) ReadLoop(ctx context.Context) {
+	t.mu.Lock() // synchronize with Close
+	defer t.mu.Unlock()
+
 	for {
 		select {
 		case ev := <-t.fsWatcher.Event:
