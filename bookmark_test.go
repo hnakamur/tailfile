@@ -1,70 +1,41 @@
 package tailfile
 
 import (
-	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
+	"testing"
 )
 
-func ExampleBookmarkSave() {
+func TestBookmarkSaveAndLoad(t *testing.T) {
 	file, err := ioutil.TempFile("", "tailfile-bookmark-example")
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal("failed to create a temporary file: %s", err)
 	}
 	defer os.Remove(file.Name())
 
-	bookmark := Bookmark{
+	b := Bookmark{
 		OriginalPath: "/var/log/example/access.log",
 		WatchingPath: "/var/log/example/access.log.old",
 		Position:     234,
 	}
-	err = bookmark.Save(file.Name())
+	err = b.Save(file.Name())
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal("failed to save a bookmark to file: %s", err)
 	}
 
-	buf, err := ioutil.ReadAll(file)
+	var b2 Bookmark
+	err = b2.Load(file.Name())
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal("failed to load a saved bookmark: %s", err)
 	}
 
-	fmt.Println(string(buf))
-
-	// Output:
-	//{"originalPath":"/var/log/example/access.log","watchingPath":"/var/log/example/access.log.old","position":"234"}
-}
-
-func ExampleBookmarkLoad() {
-	file, err := ioutil.TempFile("", "tailfile-bookmark-example")
-	if err != nil {
-		log.Fatal(err)
+	if b2.OriginalPath != b.OriginalPath {
+		t.Errorf("Loaded OriginalPath %s; want %s", b2.OriginalPath, b.OriginalPath)
 	}
-	defer os.Remove(file.Name())
-
-	_, err = file.WriteString(`{"originalPath":"/var/log/example/access.log","watchingPath":"/var/log/example/access.log.old","position":"234"}`)
-	if err != nil {
-		log.Fatal(err)
+	if b2.WatchingPath != b.WatchingPath {
+		t.Errorf("Loaded WatchingPath %s; want %s", b2.WatchingPath, b.WatchingPath)
 	}
-
-	var bookmark Bookmark
-	err = bookmark.Load(file.Name())
-	if err != nil {
-		log.Fatal(err)
+	if b2.Position != b.Position {
+		t.Errorf("Loaded Position %d; want %d", b2.Position, b.Position)
 	}
-
-	fmt.Printf("originalPath:%s\n", bookmark.OriginalPath)
-	fmt.Printf("watchingPath:%s\n", bookmark.WatchingPath)
-	fmt.Printf("position:%d\n", bookmark.Position)
-	buf, err := ioutil.ReadAll(file)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println(string(buf))
-
-	// Output:
-	//originalPath:/var/log/example/access.log
-	//watchingPath:/var/log/example/access.log.old
-	//position:234
 }
