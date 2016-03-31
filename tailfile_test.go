@@ -21,6 +21,7 @@ func ExampleTailCreateRenameRecreate() {
 
 	targetPath := filepath.Join(dir, "example.log")
 	renamedPath := filepath.Join(dir, "example.log.old")
+	bookmarkPath := filepath.Join(dir, "example.log.bookmark")
 
 	done := make(chan struct{})
 
@@ -77,7 +78,7 @@ func ExampleTailCreateRenameRecreate() {
 		}
 	}()
 
-	t, err := NewTailFile(targetPath, nil)
+	t, err := NewTailFile(targetPath, bookmarkPath, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -130,6 +131,7 @@ func ExampleTailCreateTruncate() {
 	defer os.RemoveAll(dir)
 
 	targetPath := filepath.Join(dir, "example.log")
+	bookmarkPath := filepath.Join(dir, "example.log.bookmark")
 
 	done := make(chan struct{})
 
@@ -175,7 +177,7 @@ func ExampleTailCreateTruncate() {
 		}
 	}()
 
-	t, err := NewTailFile(targetPath, nil)
+	t, err := NewTailFile(targetPath, bookmarkPath, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

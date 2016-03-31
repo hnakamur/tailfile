@@ -19,6 +19,7 @@ type TailFile struct {
 	dirPath             string
 	watchingFileAbsPath string
 	fileSize            int64
+	bookmarkFilename    string
 	fsWatcher           *fsnotify.Watcher
 	file                *os.File
 	reader              *bufio.Reader
@@ -32,7 +33,7 @@ type TailFile struct {
 // NewTailFile starts watching the directory for the target file and opens the target file if it exists.
 // The target file may not exist at the first. In that case, TailFile opens the target file as soon as
 // the target file is created and written in the later time.
-func NewTailFile(filename string, logger Logger) (*TailFile, error) {
+func NewTailFile(filename, bookmarkFilename string, logger Logger) (*TailFile, error) {
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
 		return nil, err
@@ -53,6 +54,7 @@ func NewTailFile(filename string, logger Logger) (*TailFile, error) {
 		targetAbsPath:       absPath,
 		watchingFileAbsPath: absPath,
 		dirPath:             dirPath,
+		bookmarkFilename:    bookmarkFilename,
 		fsWatcher:           fsWatcher,
 		logger:              logger,
 		Lines:               make(chan string),
@@ -153,6 +155,19 @@ func (t *TailFile) readLines() {
 	}
 }
 
+func (t *TailFile) saveBookmark() error {
+	pos, err := t.file.Seek(0, os.SEEK_CUR)
+	if err != nil {
+		return err
+	}
+	b := Bookmark{
+		OriginalPath: t.targetAbsPath,
+		WatchingPath: t.watchingFileAbsPath,
+		Position:     pos,
+	}
+	return b.Save(t.bookmarkFilename)
+}
+
 // ReadLoop runs a loop for reading the target file. Please use this with a goroutine like:
 //  go t.ReadLoop()
 func (t *TailFile) ReadLoop(ctx context.Context) {
@@ -191,6 +206,12 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 					return
 				}
 				t.readLines()
+				err = t.saveBookmark()
+				if err != nil {
+					t.Errors <- err
+					return
+				}
+
 			case ev.IsModify() && ev.Name == t.watchingFileAbsPath:
 				fi, err := t.file.Stat()
 				if err != nil {
@@ -215,6 +236,12 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 					return
 				}
 				t.readLines()
+				err = t.saveBookmark()
+				if err != nil {
+					t.Errors <- err
+					return
+				}
+
 			case ev.IsRename() && ev.Name == t.watchingFileAbsPath:
 				if t.logger != nil {
 					t.logger.Log("File renamed. read until EOF, then close")
@@ -238,7 +265,7 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 					return
 				}
 				t.watchingFileAbsPath = filename
-				t.readLines()
+
 			case ev.IsDelete():
 				if ev.Name == t.watchingFileAbsPath {
 					if t.logger != nil {

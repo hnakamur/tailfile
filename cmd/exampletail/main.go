@@ -27,9 +27,10 @@ func main() {
 		os.Exit(1)
 	}
 	targetPath := flag.Arg(0)
+	bookmarkPath := targetPath + ".bookmark"
 
 	logger := myLogger{log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)}
-	t, err := tailfile.NewTailFile(targetPath, logger)
+	t, err := tailfile.NewTailFile(targetPath, bookmarkPath, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
