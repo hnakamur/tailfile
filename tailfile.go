@@ -17,6 +17,7 @@ type TailFile struct {
 	targetAbsPath       string
 	dirPath             string
 	watchingFileAbsPath string
+	fileSize            int64
 	fsWatcher           *fsnotify.Watcher
 	file                *os.File
 	reader              *bufio.Reader
@@ -87,6 +88,12 @@ func (t *TailFile) tryOpenFile() error {
 			return err
 		}
 	}
+
+	fi, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	t.fileSize = fi.Size()
 
 	err = t.watchFile(t.watchingFileAbsPath)
 	if err != nil {
@@ -177,7 +184,24 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 				}
 				t.readLines()
 			case ev.IsModify() && ev.Name == t.watchingFileAbsPath:
-				err := t.tryOpenFile()
+				fi, err := t.file.Stat()
+				if err != nil {
+					t.Errors <- err
+					return
+				}
+				if fi.Size() < t.fileSize {
+					if t.logger != nil {
+						t.logger.Log("file size got smaller. closing file")
+					}
+					err := t.closeFile()
+					if err != nil {
+						t.Errors <- err
+						return
+					}
+				}
+				t.fileSize = fi.Size()
+
+				err = t.tryOpenFile()
 				if err != nil {
 					t.Errors <- err
 					return
