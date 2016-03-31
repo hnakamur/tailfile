@@ -296,6 +296,12 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 	defer t.mu.Unlock()
 
 	t.readLines()
+	err = t.saveBookmark()
+	if err != nil {
+		t.Errors <- err
+		return
+	}
+
 	for {
 		select {
 		case ev := <-t.fsWatcher.Event:
