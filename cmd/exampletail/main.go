@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"time"
 
 	"golang.org/x/net/context"
 
@@ -30,8 +29,7 @@ func main() {
 	targetPath := flag.Arg(0)
 
 	logger := myLogger{log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)}
-	pollingIntervalAfterRename := time.Duration(50) * time.Millisecond
-	t, err := tailfile.NewTailFile(targetPath, pollingIntervalAfterRename, logger)
+	t, err := tailfile.NewTailFile(targetPath, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
