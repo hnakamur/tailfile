@@ -20,6 +20,7 @@ type TailFile struct {
 	watchingFileAbsPath string
 	fileSize            int64
 	bookmarkFilename    string
+	bookmark            *Bookmark
 	fsWatcher           *fsnotify.Watcher
 	file                *os.File
 	reader              *bufio.Reader
@@ -38,28 +39,54 @@ func NewTailFile(filename, bookmarkFilename string, logger Logger) (*TailFile, e
 	if err != nil {
 		return nil, err
 	}
+	t := &TailFile{
+		targetAbsPath:       absPath,
+		watchingFileAbsPath: absPath,
+		bookmarkFilename:    bookmarkFilename,
+		logger:              logger,
+		Lines:               make(chan string),
+		Errors:              make(chan error),
+	}
+
+	if bookmarkFilename != "" {
+		bookmark := new(Bookmark)
+		err := bookmark.Load(bookmarkFilename)
+		if err != nil {
+			if err2, ok := err.(*os.PathError); ok && err2.Err == syscall.ENOENT {
+				if logger != nil {
+					logger.Log(fmt.Sprintf("Bookmark file \"%s\" does not exist, ignoring.", bookmarkFilename))
+				}
+			} else {
+				return nil, err
+			}
+		} else {
+			if bookmark.OriginalPath != absPath {
+				return nil, fmt.Errorf("Bookmark's originalPath \"%s\" does not match \"%s\"", bookmark.OriginalPath, filename)
+			}
+			t.bookmark = bookmark
+			if logger != nil {
+				logger.Log("Loaded bookmark")
+			}
+		}
+	} else {
+		if logger != nil {
+			logger.Log("Bookmark filename specified was empty. We recommend you to specify a non-empty path")
+		}
+	}
 
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
+	t.fsWatcher = fsWatcher
 
 	dirPath := filepath.Dir(absPath)
 	err = fsWatcher.WatchFlags(dirPath, fsnotify.FSN_CREATE|fsnotify.FSN_DELETE)
 	if err != nil {
 		return nil, err
 	}
+	t.dirPath = dirPath
 
-	t := &TailFile{
-		targetAbsPath:       absPath,
-		watchingFileAbsPath: absPath,
-		dirPath:             dirPath,
-		bookmarkFilename:    bookmarkFilename,
-		fsWatcher:           fsWatcher,
-		logger:              logger,
-		Lines:               make(chan string),
-		Errors:              make(chan error),
-	}
 	err = t.tryOpenFile()
 	if err != nil {
 		return nil, err
@@ -87,29 +114,123 @@ func (t *TailFile) tryOpenFile() error {
 		return nil
 	}
 
-	file, err := os.Open(t.targetAbsPath)
-	if err != nil {
-		if err2, ok := err.(*os.PathError); ok && err2.Err == syscall.ENOENT {
-			return nil
+	var file *os.File
+	var exists bool
+	var fileSize int64
+	var err error
+	if t.bookmark != nil {
+		file, exists, err = openFileForReadingIfExist(t.bookmark.WatchingPath)
+		if err != nil {
+			return err
+		}
+
+		if exists {
+			// We successfully opened the file we were watching when we save the bookmark before.
+			if t.logger != nil {
+				t.logger.Log(fmt.Sprintf("tryOpenFile before updating t.watchingFileAbsPath=\"%s\" with t.bookmark.WathingPath=\"%s\"", t.watchingFileAbsPath, t.bookmark.WatchingPath))
+			}
+			t.watchingFileAbsPath = t.bookmark.WatchingPath
+
+			fileSize, err = getOpenedFileSize(file)
+			if err != nil {
+				return err
+			}
+
+			if t.bookmark.Position <= fileSize {
+				if t.logger != nil {
+					t.logger.Log(fmt.Sprintf("tryOpenFile: before seeeking \"%s\":%d fileSize=%d, fd=%d", t.watchingFileAbsPath, t.bookmark.Position, fileSize, file.Fd()))
+				}
+				pos, err := file.Seek(t.bookmark.Position, os.SEEK_SET)
+				if err != nil {
+					return err
+				}
+
+				if t.logger != nil {
+					t.logger.Log(fmt.Sprintf("Opened \"%s\" and seeked to position %d (position in Bookmark: %d)", t.bookmark.WatchingPath, pos, t.bookmark.Position))
+				}
+			}
+
+			t.bookmark = nil
 		} else {
+			// Copy to temporary variable for later use
+			bookmarkWatchingPath := t.bookmark.WatchingPath
+
+			// NOTE: Discard bookmark since the file we were watching does not exist.
+			t.bookmark = nil
+
+			if t.targetAbsPath == bookmarkWatchingPath {
+				return nil
+			}
+
+			file, exists, err = openFileForReadingIfExist(t.targetAbsPath)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				return nil
+			}
+
+			fileSize, err = getOpenedFileSize(file)
+			if err != nil {
+				return err
+			}
+
+			// NOTE: Start reading from the head without seeking
+			//       since the file we were watching does not exist.
+		}
+	} else {
+		if t.logger != nil {
+			t.logger.Log(fmt.Sprintf("tryOpenFile opening t.targetAbsPath=%s (t.bookmark == nil)", t.targetAbsPath))
+		}
+		file, exists, err = openFileForReadingIfExist(t.targetAbsPath)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return nil
+		}
+
+		fileSize, err = getOpenedFileSize(file)
+		if err != nil {
 			return err
 		}
 	}
 
-	fi, err := file.Stat()
-	if err != nil {
-		return err
+	if t.logger != nil {
+		t.logger.Log(fmt.Sprintf("tryOpenFile before watch file. t.watchingFileAbsPath=\"%s\"", t.watchingFileAbsPath))
 	}
-	t.fileSize = fi.Size()
-
 	err = t.watchFile(t.watchingFileAbsPath)
 	if err != nil {
 		return err
 	}
+	if t.logger != nil {
+		t.logger.Log("tryOpenFile after watch file")
+	}
 
 	t.file = file
+	t.fileSize = fileSize
 	t.reader = bufio.NewReader(file)
 	return nil
+}
+
+func openFileForReadingIfExist(path string) (file *os.File, exists bool, err error) {
+	file, err = os.Open(path)
+	if err != nil {
+		if err2, ok := err.(*os.PathError); ok && err2.Err == syscall.ENOENT {
+			err = nil
+		}
+	} else {
+		exists = true
+	}
+	return
+}
+
+func getOpenedFileSize(file *os.File) (int64, error) {
+	fi, err := file.Stat()
+	if err != nil {
+		return 0, err
+	}
+	return fi.Size(), nil
 }
 
 func (t *TailFile) closeFile() error {
@@ -174,6 +295,7 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 	t.mu.Lock() // synchronize with Close
 	defer t.mu.Unlock()
 
+	t.readLines()
 	for {
 		select {
 		case ev := <-t.fsWatcher.Event:

@@ -17,7 +17,7 @@ func main() {
 	filename := flag.Arg(0)
 	rename := flag.Arg(1)
 
-	interval := time.Duration(9) * time.Millisecond
+	interval := time.Duration(58) * time.Millisecond
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal()
