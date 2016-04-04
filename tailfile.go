@@ -9,9 +9,9 @@ import (
 	"sync"
 	"syscall"
 
-	"golang.org/x/net/context"
-
 	"gopkg.in/fsnotify.v0"
+
+	"golang.org/x/net/context"
 )
 
 type TailFile struct {
@@ -277,6 +277,9 @@ func (t *TailFile) readLines() {
 }
 
 func (t *TailFile) saveBookmark() error {
+	if t.file == nil {
+		return nil
+	}
 	pos, err := t.file.Seek(0, os.SEEK_CUR)
 	if err != nil {
 		return err
@@ -290,13 +293,13 @@ func (t *TailFile) saveBookmark() error {
 }
 
 // ReadLoop runs a loop for reading the target file. Please use this with a goroutine like:
-//  go t.ReadLoop()
-func (t *TailFile) ReadLoop(ctx context.Context) {
+//  go t.Run()
+func (t *TailFile) Run(ctx context.Context) {
 	t.mu.Lock() // synchronize with Close
 	defer t.mu.Unlock()
 
 	t.readLines()
-	err = t.saveBookmark()
+	err := t.saveBookmark()
 	if err != nil {
 		t.Errors <- err
 		return
@@ -416,7 +419,7 @@ func (t *TailFile) ReadLoop(ctx context.Context) {
 			return
 		case <-ctx.Done():
 			if t.logger != nil {
-				t.logger.Log("received ctx.Done. exiting ReadLoop")
+				t.logger.Log("received ctx.Done. exiting Run")
 			}
 			return
 		}

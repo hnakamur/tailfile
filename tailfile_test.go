@@ -11,6 +11,14 @@ import (
 	"golang.org/x/net/context"
 )
 
+//type myLogger struct {
+//	*log.Logger
+//}
+//
+//func (l myLogger) Log(v interface{}) {
+//	l.Print(v)
+//}
+
 func ExampleTailCreateRenameRecreate() {
 	dir, err := ioutil.TempDir("", "tailfile-example")
 	if err != nil {
@@ -78,6 +86,13 @@ func ExampleTailCreateRenameRecreate() {
 		}
 	}()
 
+	//file, err := os.Create("/tmp/tailfile_test.log")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//defer file.Close()
+	//logger := myLogger{log.New(file, "", log.LstdFlags|log.Lmicroseconds)}
+	//t, err := NewTailFile(targetPath, bookmarkPath, logger)
 	t, err := NewTailFile(targetPath, bookmarkPath, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -85,7 +100,7 @@ func ExampleTailCreateRenameRecreate() {
 	defer t.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go t.ReadLoop(ctx)
+	go t.Run(ctx)
 loop:
 	for {
 		select {
@@ -184,7 +199,7 @@ func ExampleTailCreateTruncate() {
 	defer t.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go t.ReadLoop(ctx)
+	go t.Run(ctx)
 loop:
 	for {
 		select {
