@@ -40,7 +40,7 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go t.ReadLoop(ctx)
+	go t.Run(ctx)
 loop:
 	for {
 		select {
