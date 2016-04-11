@@ -16,7 +16,6 @@ type TailFile struct {
 	logger   Logger
 
 	pollingInterval time.Duration
-	pollingTimer    *time.Timer
 	recreatedFile   *os.File
 	renamedFilename string
 	seenEOF         bool
@@ -30,13 +29,10 @@ type TailFile struct {
 // The target file may not exist at the first. In that case, TailFile opens the target file as soon as
 // the target file is created and written in the later time.
 func NewTailFile(filename string, pollingInterval time.Duration, logger Logger) *TailFile {
-	timer := time.NewTimer(0)
-	timer.Stop()
 	return &TailFile{
 		filename:        filename,
 		logger:          logger,
 		pollingInterval: pollingInterval,
-		pollingTimer:    timer,
 		Lines:           make(chan string),
 		Errors:          make(chan error),
 	}
@@ -70,17 +66,9 @@ func (t *TailFile) Run(ctx context.Context) {
 	}
 	defer t.closeFile()
 	for s := stateOpening; s != nil; s = s(ctx, t) {
-		if t.file == nil || t.seenEOF {
-			t.pollingTimer.Reset(t.pollingInterval)
-		} else {
-			t.pollingTimer.Stop()
-		}
-
 		select {
 		case <-ctx.Done():
 			return
-		case <-t.pollingTimer.C:
-			// do nothing
 		default:
 			// do nothing
 		}
@@ -88,6 +76,10 @@ func (t *TailFile) Run(ctx context.Context) {
 }
 
 func (t *TailFile) readLine() error {
+	if t.seenEOF {
+		time.Sleep(t.pollingInterval)
+	}
+
 	line, err := t.reader.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return err
@@ -102,6 +94,8 @@ func (t *TailFile) readLine() error {
 type stateFn func(context.Context, *TailFile) stateFn
 
 func stateOpening(ctx context.Context, t *TailFile) stateFn {
+	time.Sleep(t.pollingInterval)
+
 	file, err := os.Open(t.filename)
 	if err != nil && !os.IsNotExist(err) {
 		t.Errors <- err
