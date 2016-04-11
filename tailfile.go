@@ -105,10 +105,13 @@ func stateOpening(t *TailFile) stateFn {
 	if err == nil {
 		t.file = file
 		t.reader = bufio.NewReader(file)
+		if t.logger != nil {
+			t.logger.Log("transiion to stateReading")
+		}
 		return stateReading
-	} else {
-		return stateOpening
 	}
+
+	return stateOpening
 }
 
 type fileInfo struct {
@@ -142,6 +145,9 @@ func stateReading(t *TailFile) stateFn {
 	}
 	if filename != t.filename {
 		t.renamedFilename = filename
+		if t.logger != nil {
+			t.logger.Log("transiion to stateRenamed")
+		}
 		return stateRenamed
 	}
 
@@ -187,9 +193,9 @@ func stateReadingOldFileBeforeRecreation(t *TailFile) stateFn {
 			t.logger.Log("transition to stateReadingOldFileAfterRecreation")
 		}
 		return stateReadingOldFileAfterRecreation
-	} else {
-		return stateReadingOldFileBeforeRecreation
 	}
+
+	return stateReadingOldFileBeforeRecreation
 }
 
 func stateReadingOldFileAfterRecreation(t *TailFile) stateFn {
