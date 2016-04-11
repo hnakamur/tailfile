@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"os"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/context"
@@ -115,19 +114,23 @@ func stateOpening(ctx context.Context, t *TailFile) stateFn {
 	}
 }
 
+type fileInfo struct {
+	Size    int64
+	Removed bool
+}
+
 func stateReading(ctx context.Context, t *TailFile) stateFn {
-	var st syscall.Stat_t
-	err := syscall.Fstat(int(t.file.Fd()), &st)
+	fi, err := getFileInfo(t.file.Fd())
 	if err != nil {
 		t.Errors <- err
 		return nil
 	}
-	if st.Size < t.fileSize {
+	if fi.Size < t.fileSize {
 		return stateShrinked
-	} else if st.Nlink == 0 {
-		return stateDeleted
+	} else if fi.Removed {
+		return stateRemoved
 	}
-	t.fileSize = st.Size
+	t.fileSize = fi.Size
 
 	filename, err := getFilenameFromFd(t.file.Fd())
 	if err != nil {
@@ -152,7 +155,7 @@ func stateShrinked(ctx context.Context, t *TailFile) stateFn {
 	return stateOpening
 }
 
-func stateDeleted(ctx context.Context, t *TailFile) stateFn {
+func stateRemoved(ctx context.Context, t *TailFile) stateFn {
 	t.closeFile()
 	return stateOpening
 }
