@@ -199,7 +199,6 @@ func ExampleTailCreateTruncate() {
 			done <- struct{}{}
 		}()
 
-		interval := time.Duration(9) * time.Millisecond
 		file, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 		if err != nil {
 			log.Fatal(err)
@@ -211,29 +210,32 @@ func ExampleTailCreateTruncate() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(interval)
 		}
 
 		err = file.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
+		time.Sleep(time.Duration(10) * time.Millisecond)
 
 		file, err = os.OpenFile(targetPath, os.O_WRONLY|os.O_TRUNC, 0666)
 		if err != nil {
 			log.Fatal()
 		}
+		time.Sleep(time.Duration(10) * time.Millisecond)
+
 		for ; i < 10; i++ {
 			_, err := file.WriteString(fmt.Sprintf("line%d\n", i))
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(interval)
 		}
 		err = file.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		time.Sleep(time.Duration(10) * time.Millisecond)
 	}()
 
 	t := NewTailFile(targetPath, time.Millisecond, nil)
@@ -287,7 +289,6 @@ func ExampleTailCreateDeleteRecreate() {
 			done <- struct{}{}
 		}()
 
-		interval := time.Duration(9) * time.Millisecond
 		file, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 		if err != nil {
 			log.Fatal(err)
@@ -299,13 +300,14 @@ func ExampleTailCreateDeleteRecreate() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(interval)
 		}
 
 		err = file.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		time.Sleep(time.Duration(10) * time.Millisecond)
 
 		err = os.Remove(targetPath)
 		if err != nil {
@@ -321,12 +323,13 @@ func ExampleTailCreateDeleteRecreate() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(interval)
 		}
 		err = file.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		time.Sleep(time.Duration(20) * time.Millisecond)
 	}()
 
 	t := NewTailFile(targetPath, time.Millisecond, nil)

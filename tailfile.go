@@ -65,6 +65,9 @@ func (t *TailFile) closeFile() {
 
 // Run a loop for reading the target file.
 func (t *TailFile) Run(ctx context.Context) {
+	if t.logger != nil {
+		t.logger.Log("Run start")
+	}
 	defer t.closeFile()
 	for s := stateOpening; s != nil; s = s(ctx, t) {
 		if t.file == nil || t.seenEOF {
@@ -126,8 +129,14 @@ func stateReading(ctx context.Context, t *TailFile) stateFn {
 		return nil
 	}
 	if fi.Size < t.fileSize {
+		if t.logger != nil {
+			t.logger.Log("transiion to stateShrinked")
+		}
 		return stateShrinked
 	} else if fi.Removed {
+		if t.logger != nil {
+			t.logger.Log("transiion to stateRemoved")
+		}
 		return stateRemoved
 	}
 	t.fileSize = fi.Size
@@ -156,8 +165,7 @@ func stateShrinked(ctx context.Context, t *TailFile) stateFn {
 }
 
 func stateRemoved(ctx context.Context, t *TailFile) stateFn {
-	t.closeFile()
-	return stateOpening
+	return stateReadingOldFileBeforeRecreation
 }
 
 func stateRenamed(ctx context.Context, t *TailFile) stateFn {
@@ -181,6 +189,9 @@ func stateReadingOldFileBeforeRecreation(ctx context.Context, t *TailFile) state
 	}
 
 	if t.recreatedFile != nil {
+		if t.logger != nil {
+			t.logger.Log("transition to stateReadingOldFileAfterRecreation")
+		}
 		return stateReadingOldFileAfterRecreation
 	} else {
 		return stateReadingOldFileBeforeRecreation
@@ -202,6 +213,9 @@ func stateReadingOldFileAfterRecreation(ctx context.Context, t *TailFile) stateF
 		t.closeFile()
 		t.file = file
 		t.reader = bufio.NewReader(file)
+		if t.logger != nil {
+			t.logger.Log("transition to stateReading")
+		}
 		return stateReading
 	}
 
