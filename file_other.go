@@ -2,12 +2,15 @@
 
 package tailfile
 
-import "errors"
+import (
+	"errors"
+	"os"
+)
 
-func getFileInfo(fd uintptr) (*fileInfo, error) {
+func getFileInfo(file *os.File) (*fileInfo, error) {
 	return nil, errors.New("not implemented")
 }
 
-func getFilenameFromFd(fd uintptr) (string, error) {
+func getFilename(file *os.File) (string, error) {
 	return "", errors.New("not implemented")
 }

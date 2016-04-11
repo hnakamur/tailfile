@@ -8,9 +8,9 @@ import (
 	"syscall"
 )
 
-func getFileInfo(fd uintptr) (*fileInfo, error) {
+func getFileInfo(file *os.File) (*fileInfo, error) {
 	var st syscall.Stat_t
-	err := syscall.Fstat(int(fd), &st)
+	err := syscall.Fstat(int(file.Fd()), &st)
 	if err != nil {
 		return nil, err
 	}
@@ -20,7 +20,7 @@ func getFileInfo(fd uintptr) (*fileInfo, error) {
 	}, nil
 }
 
-func getFilenameFromFd(fd uintptr) (string, error) {
-	n := fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), uint(fd))
+func getFilename(file *os.File) (string, error) {
+	n := fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), uint(file.Fd()))
 	return os.Readlink(n)
 }

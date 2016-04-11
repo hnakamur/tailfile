@@ -117,7 +117,7 @@ type fileInfo struct {
 }
 
 func stateReading(t *TailFile) stateFn {
-	fi, err := getFileInfo(t.file.Fd())
+	fi, err := getFileInfo(t.file)
 	if err != nil {
 		t.Errors <- err
 		return nil
@@ -135,7 +135,7 @@ func stateReading(t *TailFile) stateFn {
 	}
 	t.fileSize = fi.Size
 
-	filename, err := getFilenameFromFd(t.file.Fd())
+	filename, err := getFilename(t.file)
 	if err != nil {
 		t.Errors <- err
 		return nil
