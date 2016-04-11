@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"syscall"
 
 	"golang.org/x/net/context"
 )
@@ -101,10 +102,26 @@ func stateOpening(ctx context.Context, t *TailFile) stateFn {
 }
 
 func stateReading(ctx context.Context, t *TailFile) stateFn {
-	err := t.readLine()
+	var st syscall.Stat_t
+	err := syscall.Fstat(int(t.file.Fd()), &st)
+	if err != nil {
+		t.Errors <- err
+		return nil
+	}
+	if st.Size < t.fileSize {
+		return stateShrinked
+	}
+	t.fileSize = st.Size
+
+	err = t.readLine()
 	if err != nil {
 		t.Errors <- err
 		return nil
 	}
 	return stateReading
+}
+
+func stateShrinked(ctx context.Context, t *TailFile) stateFn {
+	t.closeFile()
+	return stateOpening
 }
