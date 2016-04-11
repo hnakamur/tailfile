@@ -44,9 +44,11 @@ func ExampleTailCreateWrite() {
 			}
 			time.Sleep(interval)
 		}
+
+		time.Sleep(interval)
 	}()
 
-	t, err := NewTailFile(targetPath, nil)
+	t, err := NewTailFile(targetPath, time.Millisecond, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -145,7 +147,7 @@ func ExampleTailCreateRenameRecreate() {
 		}
 	}()
 
-	t, err := NewTailFile(targetPath, nil)
+	t, err := NewTailFile(targetPath, time.Millisecond, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -242,7 +244,7 @@ func ExampleTailCreateTruncate() {
 		}
 	}()
 
-	t, err := NewTailFile(targetPath, nil)
+	t, err := NewTailFile(targetPath, time.Millisecond, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -339,7 +341,7 @@ func ExampleTailCreateDeleteRecreate() {
 		}
 	}()
 
-	t, err := NewTailFile(targetPath, nil)
+	t, err := NewTailFile(targetPath, time.Millisecond, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
