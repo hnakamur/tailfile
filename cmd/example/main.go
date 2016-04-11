@@ -54,11 +54,7 @@ func main() {
 		}
 	}()
 
-	t, err := tailfile.NewTailFile(targetPath, time.Millisecond, new(myLogger))
-	if err != nil {
-		panic(err)
-	}
-
+	t := tailfile.NewTailFile(targetPath, time.Millisecond, new(myLogger))
 	ctx, cancel := context.WithCancel(context.Background())
 	go t.Run(ctx)
 loop:

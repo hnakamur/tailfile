@@ -48,11 +48,7 @@ func ExampleTailCreateWrite() {
 		time.Sleep(interval)
 	}()
 
-	t, err := NewTailFile(targetPath, time.Millisecond, nil)
-	if err != nil {
-		panic(err)
-	}
-
+	t := NewTailFile(targetPath, time.Millisecond, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	go t.Run(ctx)
 loop:
@@ -147,11 +143,7 @@ func ExampleTailCreateRenameRecreate() {
 		}
 	}()
 
-	t, err := NewTailFile(targetPath, time.Millisecond, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	t := NewTailFile(targetPath, time.Millisecond, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	go t.Run(ctx)
 loop:
@@ -244,11 +236,7 @@ func ExampleTailCreateTruncate() {
 		}
 	}()
 
-	t, err := NewTailFile(targetPath, time.Millisecond, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	t := NewTailFile(targetPath, time.Millisecond, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	go t.Run(ctx)
 loop:
@@ -341,11 +329,7 @@ func ExampleTailCreateDeleteRecreate() {
 		}
 	}()
 
-	t, err := NewTailFile(targetPath, time.Millisecond, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	t := NewTailFile(targetPath, time.Millisecond, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	go t.Run(ctx)
 loop:

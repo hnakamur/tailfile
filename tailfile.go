@@ -30,7 +30,7 @@ type TailFile struct {
 // NewTailFile starts watching the directory for the target file and opens the target file if it exists.
 // The target file may not exist at the first. In that case, TailFile opens the target file as soon as
 // the target file is created and written in the later time.
-func NewTailFile(filename string, pollingInterval time.Duration, logger Logger) (*TailFile, error) {
+func NewTailFile(filename string, pollingInterval time.Duration, logger Logger) *TailFile {
 	timer := time.NewTimer(0)
 	timer.Stop()
 	return &TailFile{
@@ -40,7 +40,7 @@ func NewTailFile(filename string, pollingInterval time.Duration, logger Logger) 
 		pollingTimer:    timer,
 		Lines:           make(chan string),
 		Errors:          make(chan error),
-	}, nil
+	}
 }
 
 func (t *TailFile) closeFile() {
