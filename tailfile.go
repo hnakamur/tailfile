@@ -90,7 +90,7 @@ func (t *TailFile) readLine() error {
 		return err
 	}
 	t.seenEOF = (err == io.EOF)
-	if !t.seenEOF || (t.seenEOF && line != "") {
+	if line != "" {
 		t.Lines <- line
 	}
 	return nil
