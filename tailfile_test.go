@@ -278,3 +278,100 @@ loop:
 	// line=line9
 	// got done
 }
+
+func ExampleTailCreateDeleteRecreate() {
+	dir, err := ioutil.TempDir("", "tailfile-example")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer os.RemoveAll(dir)
+
+	targetPath := filepath.Join(dir, "example.log")
+
+	done := make(chan struct{})
+
+	go func() {
+		defer func() {
+			done <- struct{}{}
+		}()
+
+		interval := time.Duration(9) * time.Millisecond
+		file, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		i := 0
+		for ; i < 5; i++ {
+			_, err := file.WriteString(fmt.Sprintf("line%d\n", i))
+			if err != nil {
+				log.Fatal(err)
+			}
+			time.Sleep(interval)
+		}
+
+		err = file.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = os.Remove(targetPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		file, err = os.OpenFile(targetPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+		if err != nil {
+			log.Fatal()
+		}
+		for ; i < 10; i++ {
+			_, err := file.WriteString(fmt.Sprintf("line%d\n", i))
+			if err != nil {
+				log.Fatal(err)
+			}
+			time.Sleep(interval)
+		}
+		err = file.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	t, err := NewTailFile(targetPath, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go t.Run(ctx)
+loop:
+	for {
+		select {
+		case line := <-t.Lines:
+			fmt.Printf("line=%s\n", line)
+		case err := <-t.Errors:
+			fmt.Printf("error from tail. err=%s\n", err)
+			break loop
+		case <-done:
+			fmt.Println("got done")
+			cancel()
+			break loop
+		default:
+			// do nothing
+		}
+	}
+
+	// Output:
+	// line=line0
+	// line=line1
+	// line=line2
+	// line=line3
+	// line=line4
+	// line=line5
+	// line=line6
+	// line=line7
+	// line=line8
+	// line=line9
+	// got done
+}

@@ -76,7 +76,7 @@ func (t *TailFile) readLine() error {
 		return err
 	}
 	t.seenEOF = (err == io.EOF)
-	if !t.seenEOF {
+	if !t.seenEOF || (t.seenEOF && line != "") {
 		line = strings.TrimRight(line, "\n")
 		t.Lines <- line
 	}
@@ -110,8 +110,20 @@ func stateReading(ctx context.Context, t *TailFile) stateFn {
 	}
 	if st.Size < t.fileSize {
 		return stateShrinked
+	} else if st.Nlink == 0 {
+		return stateDeleted
 	}
 	t.fileSize = st.Size
+
+	filename, err := getFilenameFromFd(t.file.Fd())
+	if err != nil {
+		t.Errors <- err
+		return nil
+	}
+	if filename != t.filename {
+		t.renamedFilename = filename
+		return stateRenamed
+	}
 
 	err = t.readLine()
 	if err != nil {
@@ -124,4 +136,57 @@ func stateReading(ctx context.Context, t *TailFile) stateFn {
 func stateShrinked(ctx context.Context, t *TailFile) stateFn {
 	t.closeFile()
 	return stateOpening
+}
+
+func stateDeleted(ctx context.Context, t *TailFile) stateFn {
+	t.closeFile()
+	return stateOpening
+}
+
+func stateRenamed(ctx context.Context, t *TailFile) stateFn {
+	return stateReadingOldFileBeforeRecreation
+}
+
+func stateReadingOldFileBeforeRecreation(ctx context.Context, t *TailFile) stateFn {
+	file, err := os.Open(t.filename)
+	if err != nil && !os.IsNotExist(err) {
+		t.Errors <- err
+		return nil
+	}
+	if err == nil {
+		t.recreatedFile = file
+	}
+
+	err = t.readLine()
+	if err != nil {
+		t.Errors <- err
+		return nil
+	}
+
+	if t.recreatedFile != nil {
+		return stateReadingOldFileAfterRecreation
+	} else {
+		return stateReadingOldFileBeforeRecreation
+	}
+}
+
+func stateReadingOldFileAfterRecreation(ctx context.Context, t *TailFile) stateFn {
+	err := t.readLine()
+	if err != nil {
+		t.Errors <- err
+		return nil
+	}
+
+	if t.seenEOF {
+		// The file of the target path has been recreated
+		// and we had read until the end of the old file.
+		// Close the old file and start reading the new file.
+		file := t.recreatedFile
+		t.closeFile()
+		t.file = file
+		t.reader = bufio.NewReader(file)
+		return stateReading
+	}
+
+	return stateReadingOldFileAfterRecreation
 }
