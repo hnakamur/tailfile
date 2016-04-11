@@ -63,8 +63,6 @@ loop:
 			fmt.Println("got done")
 			cancel()
 			break loop
-		default:
-			// do nothing
 		}
 	}
 
@@ -108,7 +106,7 @@ func ExampleTailCreateRenameRecreate() {
 			}
 		}
 
-		time.Sleep(time.Duration(100) * time.Millisecond)
+		time.Sleep(time.Duration(20) * time.Millisecond)
 
 		err = os.Rename(targetPath, renamedPath)
 		if err != nil {
@@ -126,7 +124,7 @@ func ExampleTailCreateRenameRecreate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(50) * time.Millisecond)
+		time.Sleep(time.Duration(20) * time.Millisecond)
 
 		file, err = os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
@@ -143,7 +141,7 @@ func ExampleTailCreateRenameRecreate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(50) * time.Millisecond)
+		time.Sleep(time.Duration(20) * time.Millisecond)
 	}()
 
 	t := NewTailFile(targetPath, time.Millisecond, nil)
@@ -161,8 +159,6 @@ loop:
 			fmt.Println("got done")
 			cancel()
 			break loop
-		default:
-			// do nothing
 		}
 	}
 
@@ -220,14 +216,14 @@ func ExampleTailCreateTruncate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(50) * time.Millisecond)
+		time.Sleep(time.Millisecond)
 
 		file, err = os.OpenFile(targetPath, os.O_WRONLY|os.O_TRUNC, 0666)
 		if err != nil {
 			log.Fatal()
 		}
 
-		time.Sleep(time.Duration(10) * time.Millisecond)
+		time.Sleep(time.Millisecond)
 
 		for ; i < 10; i++ {
 			_, err := file.WriteString(fmt.Sprintf("line%d\n", i))
@@ -240,7 +236,7 @@ func ExampleTailCreateTruncate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(200) * time.Millisecond)
+		time.Sleep(time.Duration(20) * time.Millisecond)
 	}()
 
 	t := NewTailFile(targetPath, time.Microsecond, nil)
@@ -258,8 +254,6 @@ loop:
 			fmt.Println("got done")
 			cancel()
 			break loop
-		default:
-			// do nothing
 		}
 	}
 
@@ -312,7 +306,7 @@ func ExampleTailCreateDeleteRecreate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(50) * time.Millisecond)
+		time.Sleep(time.Millisecond)
 
 		err = os.Remove(targetPath)
 		if err != nil {
@@ -334,7 +328,7 @@ func ExampleTailCreateDeleteRecreate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(50) * time.Millisecond)
+		time.Sleep(time.Duration(10) * time.Millisecond)
 	}()
 
 	t := NewTailFile(targetPath, time.Microsecond, nil)
@@ -352,8 +346,6 @@ loop:
 			fmt.Println("got done")
 			cancel()
 			break loop
-		default:
-			// do nothing
 		}
 	}
 

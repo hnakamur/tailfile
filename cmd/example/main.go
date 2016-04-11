@@ -69,8 +69,6 @@ loop:
 			fmt.Println("got done")
 			cancel()
 			break loop
-		default:
-			// do nothing
 		}
 	}
 }
