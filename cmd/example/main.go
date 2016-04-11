@@ -64,6 +64,7 @@ loop:
 			fmt.Printf("line=%s\n", strings.TrimRight(line, "\n"))
 		case err := <-t.Errors:
 			fmt.Printf("error from tail. err=%s\n", err)
+			cancel()
 			break loop
 		case <-done:
 			fmt.Println("got done")
