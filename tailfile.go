@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"os"
-	"strings"
 	"syscall"
 
 	"golang.org/x/net/context"
@@ -77,7 +76,6 @@ func (t *TailFile) readLine() error {
 	}
 	t.seenEOF = (err == io.EOF)
 	if !t.seenEOF || (t.seenEOF && line != "") {
-		line = strings.TrimRight(line, "\n")
 		t.Lines <- line
 	}
 	return nil

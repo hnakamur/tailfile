@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -56,7 +57,7 @@ loop:
 	for {
 		select {
 		case line := <-t.Lines:
-			fmt.Printf("line=%s\n", line)
+			fmt.Printf("line=%s\n", strings.TrimRight(line, "\n"))
 		case err := <-t.Errors:
 			fmt.Printf("error from tail. err=%s\n", err)
 			break loop
@@ -155,7 +156,7 @@ loop:
 	for {
 		select {
 		case line := <-t.Lines:
-			fmt.Printf("line=%s\n", line)
+			fmt.Printf("line=%s\n", strings.TrimRight(line, "\n"))
 		case err := <-t.Errors:
 			fmt.Printf("error from tail. err=%s\n", err)
 			break loop
@@ -252,7 +253,7 @@ loop:
 	for {
 		select {
 		case line := <-t.Lines:
-			fmt.Printf("line=%s\n", line)
+			fmt.Printf("line=%s\n", strings.TrimRight(line, "\n"))
 		case err := <-t.Errors:
 			fmt.Printf("error from tail. err=%s\n", err)
 			break loop
@@ -349,7 +350,7 @@ loop:
 	for {
 		select {
 		case line := <-t.Lines:
-			fmt.Printf("line=%s\n", line)
+			fmt.Printf("line=%s\n", strings.TrimRight(line, "\n"))
 		case err := <-t.Errors:
 			fmt.Printf("error from tail. err=%s\n", err)
 			break loop
