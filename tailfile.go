@@ -65,7 +65,7 @@ func (t *TailFile) Run(ctx context.Context) {
 		t.logger.Log("Run start")
 	}
 	defer t.closeFile()
-	for s := stateOpening; s != nil; s = s(ctx, t) {
+	for s := stateOpening; s != nil; s = s(t) {
 		select {
 		case <-ctx.Done():
 			return
@@ -91,9 +91,9 @@ func (t *TailFile) readLine() error {
 	return nil
 }
 
-type stateFn func(context.Context, *TailFile) stateFn
+type stateFn func(*TailFile) stateFn
 
-func stateOpening(ctx context.Context, t *TailFile) stateFn {
+func stateOpening(t *TailFile) stateFn {
 	time.Sleep(t.pollingInterval)
 
 	file, err := os.Open(t.filename)
@@ -116,7 +116,7 @@ type fileInfo struct {
 	Removed bool
 }
 
-func stateReading(ctx context.Context, t *TailFile) stateFn {
+func stateReading(t *TailFile) stateFn {
 	fi, err := getFileInfo(t.file.Fd())
 	if err != nil {
 		t.Errors <- err
@@ -153,20 +153,20 @@ func stateReading(ctx context.Context, t *TailFile) stateFn {
 	return stateReading
 }
 
-func stateShrinked(ctx context.Context, t *TailFile) stateFn {
+func stateShrinked(t *TailFile) stateFn {
 	t.closeFile()
 	return stateOpening
 }
 
-func stateRemoved(ctx context.Context, t *TailFile) stateFn {
+func stateRemoved(t *TailFile) stateFn {
 	return stateReadingOldFileBeforeRecreation
 }
 
-func stateRenamed(ctx context.Context, t *TailFile) stateFn {
+func stateRenamed(t *TailFile) stateFn {
 	return stateReadingOldFileBeforeRecreation
 }
 
-func stateReadingOldFileBeforeRecreation(ctx context.Context, t *TailFile) stateFn {
+func stateReadingOldFileBeforeRecreation(t *TailFile) stateFn {
 	file, err := os.Open(t.filename)
 	if err != nil && !os.IsNotExist(err) {
 		t.Errors <- err
@@ -192,7 +192,7 @@ func stateReadingOldFileBeforeRecreation(ctx context.Context, t *TailFile) state
 	}
 }
 
-func stateReadingOldFileAfterRecreation(ctx context.Context, t *TailFile) stateFn {
+func stateReadingOldFileAfterRecreation(t *TailFile) stateFn {
 	err := t.readLine()
 	if err != nil {
 		t.Errors <- err
