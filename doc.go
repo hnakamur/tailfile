@@ -16,11 +16,5 @@
 // Also when you kill the process running this package while reading the renamed log file, it cannot continue reading the
 // rest logs in the renamed log file.
 //
-// This limitation comes from the package http://gopkg.in/fsnotify.v1 which is used to the detect filesystem change.
-// It can detect a file is renamed but it does not tell you the new filename.
-//
-// In the same reason, reading the renamed log file uses the polling as opposed to reading the original log file uses the
-// file write event.
-//
-// See cmd/exampletail/main.go for an example. Run this example alongside cmd/examplewriter/main.go.
+// See cmd/example/main.go and tailfile_test.go for an example.
 package tailfile
