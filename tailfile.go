@@ -106,7 +106,7 @@ func stateOpening(t *TailFile) stateFn {
 		t.file = file
 		t.reader = bufio.NewReader(file)
 		if t.logger != nil {
-			t.logger.Log("transiion to stateReading")
+			t.logger.Log("transition to stateReading")
 		}
 		return stateReading
 	}
@@ -114,39 +114,58 @@ func stateOpening(t *TailFile) stateFn {
 	return stateOpening
 }
 
-type fileInfo struct {
-	Size    int64
-	Removed bool
+type fileAndStat struct {
+	filename string
+	file     *os.File
+	fi       os.FileInfo
 }
 
 func stateReading(t *TailFile) stateFn {
-	fi, err := getFileInfo(t.file)
+	fi, err := t.file.Stat()
 	if err != nil {
 		t.Errors <- err
 		return nil
 	}
-	if fi.Size < t.fileSize {
+	fiSize := fi.Size()
+	if fiSize < t.fileSize {
 		if t.logger != nil {
-			t.logger.Log("transiion to stateShrinked")
+			t.logger.Log("transition to stateShrinked")
 		}
 		return stateShrinked
-	} else if fi.Removed {
+	}
+
+	fs := fileAndStat{
+		filename: t.filename,
+		file:     t.file,
+		fi:       fi,
+	}
+	removed, err := fs.removed()
+	if err != nil {
+		t.Errors <- err
+		return nil
+	}
+	if removed {
 		if t.logger != nil {
-			t.logger.Log("transiion to stateRemoved")
+			t.logger.Log("transition to stateRemoved")
 		}
 		return stateRemoved
 	}
-	t.fileSize = fi.Size
+	t.fileSize = fiSize
 
-	filename, err := getFilename(t.file)
+	filename, err := fs.currentFilename()
 	if err != nil {
 		t.Errors <- err
 		return nil
 	}
-	if filename != t.filename {
+	same, err := sameFile(t.filename, filename)
+	if err != nil {
+		t.Errors <- err
+		return nil
+	}
+	if !same {
 		t.renamedFilename = filename
 		if t.logger != nil {
-			t.logger.Log("transiion to stateRenamed")
+			t.logger.Log("transition to stateRenamed")
 		}
 		return stateRenamed
 	}
@@ -157,6 +176,38 @@ func stateReading(t *TailFile) stateFn {
 		return nil
 	}
 	return stateReading
+}
+
+func sameFile(filename1, filename2 string) (bool, error) {
+	if filename1 == filename2 {
+		return true, nil
+	}
+
+	exists1 := true
+	fi1, err := os.Stat(filename1)
+	if err != nil {
+		if os.IsNotExist(err) {
+			exists1 = false
+		} else {
+			return false, err
+		}
+	}
+
+	exists2 := true
+	fi2, err := os.Stat(filename2)
+	if err != nil {
+		if os.IsNotExist(err) {
+			exists2 = false
+		} else {
+			return false, err
+		}
+	}
+
+	if exists1 && exists2 {
+		return os.SameFile(fi1, fi2), nil
+	} else {
+		return false, nil
+	}
 }
 
 func stateShrinked(t *TailFile) stateFn {

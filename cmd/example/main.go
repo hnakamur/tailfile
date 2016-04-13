@@ -25,10 +25,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	defer os.RemoveAll(dir)
 
 	targetPath := filepath.Join(dir, "example.log")
+	renamedPath := filepath.Join(dir, "example.log.old")
 
 	done := make(chan struct{})
 
@@ -37,21 +37,57 @@ func main() {
 			done <- struct{}{}
 		}()
 
-		interval := time.Duration(9) * time.Millisecond
-		time.Sleep(time.Second)
 		file, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
 		i := 0
 		for ; i < 5; i++ {
 			_, err := file.WriteString(fmt.Sprintf("line%d\n", i))
 			if err != nil {
-				panic(err)
+				log.Fatal(err)
 			}
-			time.Sleep(interval)
 		}
+
+		time.Sleep(time.Duration(100) * time.Millisecond)
+
+		err = os.Rename(targetPath, renamedPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("renamed from %s to %s", targetPath, renamedPath)
+
+		for ; i < 10; i++ {
+			_, err := file.WriteString(fmt.Sprintf("line%d\n", i))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		err = file.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		time.Sleep(time.Duration(100) * time.Millisecond)
+
+		file, err = os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			log.Fatal()
+		}
+		log.Printf("recreated file=%s", targetPath)
+		for ; i < 15; i++ {
+			_, err := file.WriteString(fmt.Sprintf("line%d\n", i))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		err = file.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		time.Sleep(time.Duration(100) * time.Millisecond)
 	}()
 
 	t := tailfile.NewTailFile(targetPath, time.Millisecond, new(myLogger))

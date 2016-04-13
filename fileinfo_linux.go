@@ -3,18 +3,16 @@
 package tailfile
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 )
 
-func getFileInfo(file *os.File) (*fileInfo, error) {
-	var st syscall.Stat_t
-	err := syscall.Fstat(int(file.Fd()), &st)
-	if err != nil {
-		return nil, err
-	}
-	return &fileInfo{
-		Size:    st.Size,
-		Removed: st.Nlink == 0,
-	}, nil
+func (f *fileAndStat) currentFilename() (string, error) {
+	n := fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), uint(f.file.Fd()))
+	return os.Readlink(n)
+}
+
+func (f *fileAndStat) removed() (bool, error) {
+	return f.fi.Sys().(*syscall.Stat_t).Nlink == 0, nil
 }

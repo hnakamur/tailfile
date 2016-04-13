@@ -107,7 +107,7 @@ func ExampleTailCreateRenameRecreate() {
 			}
 		}
 
-		time.Sleep(time.Duration(20) * time.Millisecond)
+		time.Sleep(time.Duration(100) * time.Millisecond)
 
 		err = os.Rename(targetPath, renamedPath)
 		if err != nil {
@@ -125,7 +125,7 @@ func ExampleTailCreateRenameRecreate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(20) * time.Millisecond)
+		time.Sleep(time.Duration(100) * time.Millisecond)
 
 		file, err = os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
@@ -142,7 +142,7 @@ func ExampleTailCreateRenameRecreate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(20) * time.Millisecond)
+		time.Sleep(time.Duration(100) * time.Millisecond)
 	}()
 
 	t := NewTailFile(targetPath, time.Millisecond, nil)
@@ -218,14 +218,14 @@ func ExampleTailCreateTruncate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Millisecond)
+		time.Sleep(time.Duration(100) * time.Millisecond)
 
 		file, err = os.OpenFile(targetPath, os.O_WRONLY|os.O_TRUNC, 0666)
 		if err != nil {
 			log.Fatal()
 		}
 
-		time.Sleep(time.Millisecond)
+		time.Sleep(time.Duration(100) * time.Millisecond)
 
 		for ; i < 10; i++ {
 			_, err := file.WriteString(fmt.Sprintf("line%d\n", i))
@@ -238,10 +238,10 @@ func ExampleTailCreateTruncate() {
 			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(20) * time.Millisecond)
+		time.Sleep(time.Duration(100) * time.Millisecond)
 	}()
 
-	t := NewTailFile(targetPath, time.Microsecond, nil)
+	t := NewTailFile(targetPath, time.Millisecond, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	go t.Run(ctx)
 loop:
